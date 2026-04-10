@@ -165,21 +165,24 @@ def parse_csv_to_payload(csv_text: str) -> dict:
         if not rows:
             return {}
         total_docs     = sum(r["docs"] for r in rows)
+        total_etiq     = sum(r["etiquetas"] for r in rows)
         total_bk       = sum(r["bookings"] for r in rows)
         total_err_docs = sum(r["err_docs"] for r in rows)
         total_err_etiq = sum(r["err_etiq"] for r in rows)
         avg_exp_h  = round(sum(r["exp_por_hora"] for r in rows) / len(rows), 2)
         avg_doc_h  = round(sum(r["docs_por_hora"] for r in rows) / len(rows), 2)
         return {
-            "sesiones":         len(rows),
-            "bookings":         total_bk,
-            "docs":             total_docs,
-            "err_docs":         total_err_docs,
-            "err_etiq":         total_err_etiq,
-            "avg_exp_hora":     avg_exp_h,
-            "avg_docs_hora":    avg_doc_h,
-            "tasa_error_docs":  round(total_err_docs / total_docs * 100, 2) if total_docs > 0 else 0,
-            "tasa_error_total": round((total_err_docs + total_err_etiq) / total_docs * 100, 2) if total_docs > 0 else 0,
+            "sesiones":          len(rows),
+            "bookings":          total_bk,
+            "docs":              total_docs,
+            "etiquetas":         total_etiq,
+            "err_docs":          total_err_docs,
+            "err_etiq":          total_err_etiq,
+            "avg_exp_hora":      avg_exp_h,
+            "avg_docs_hora":     avg_doc_h,
+            "tasa_error_docs":   round(total_err_docs / total_docs * 100, 2) if total_docs > 0 else 0,
+            "tasa_error_etiq":   round(total_err_etiq / total_etiq * 100, 2) if total_etiq > 0 else 0,
+            "tasa_error_total":  round((total_err_docs + total_err_etiq) / total_docs * 100, 2) if total_docs > 0 else 0,
         }
 
     tipos: dict = {}

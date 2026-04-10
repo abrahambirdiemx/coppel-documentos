@@ -303,10 +303,10 @@ function render(data) {
         <div class="kpi-value orange">${pct(b.tasa_error_total)}</div>
         <div class="kpi-sub">${b.err_docs + b.err_etiq} flags / ${b.docs} docs (incl. etiquetas)</div>
       </div>
-      <div class="kpi-card blue">
-        <div class="kpi-label">Tasa error docs · Manual</div>
-        <div class="kpi-value white">0.0%</div>
-        <div class="kpi-sub" style="color:var(--text-muted)">Manual no usa cols J/K (solo Birdie)</div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Tasa error etiquetas · Birdie</div>
+        <div class="kpi-value orange">${pct(b.tasa_error_etiq)}</div>
+        <div class="kpi-sub">${b.err_etiq} errores / ${b.etiquetas} etiquetas revisadas</div>
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Mejora velocidad</div>
