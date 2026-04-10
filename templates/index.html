@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Birdie — KPI Dashboard Coppel Compliance</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --surface2: #171d2e;
+    --border: #1e2840;
+    --birdie: #00e5a0;
+    --birdie-dim: rgba(0,229,160,0.12);
+    --birdie-mid: rgba(0,229,160,0.4);
+    --manual: #4c8fff;
+    --manual-dim: rgba(76,143,255,0.12);
+    --manual-mid: rgba(76,143,255,0.4);
+    --warn: #ff6b35;
+    --warn-dim: rgba(255,107,53,0.12);
+    --text: #e8eaf0;
+    --text-muted: #5a6580;
+    --text-mid: #8a95b0;
+    --gold: #f5c842;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Raleway', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 32px 28px; position: relative; z-index: 1; }
+  header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40px; padding-bottom: 28px; border-bottom: 1px solid var(--border); gap: 24px; flex-wrap: wrap; }
+  .header-left h1 { font-family: 'Raleway', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; }
+  .header-left h1 span { color: var(--birdie); }
+  .header-left p { font-size: 11px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .pill-birdie { background: var(--birdie-dim); color: var(--birdie); border: 1px solid rgba(0,229,160,0.2); }
+  .pill-manual { background: var(--manual-dim); color: var(--manual); border: 1px solid rgba(76,143,255,0.2); }
+  .pill-warn { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(255,107,53,0.2); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-birdie { background: var(--birdie); box-shadow: 0 0 6px var(--birdie); animation: pulse 2s infinite; }
+  .dot-manual { background: var(--manual); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: transform 0.2s; }
+  .kpi-card:hover { transform: translateY(-2px); }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--birdie), transparent); }
+  .kpi-card.blue::before { background: linear-gradient(90deg, var(--manual), transparent); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, var(--warn), transparent); }
+  .kpi-card.gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+  .kpi-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+  .kpi-value { font-family: 'Raleway', sans-serif; font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+  .kpi-value.green { color: var(--birdie); }
+  .kpi-value.blue { color: var(--manual); }
+  .kpi-value.orange { color: var(--warn); }
+  .kpi-value.gold { color: var(--gold); }
+  .kpi-value.white { color: var(--text); }
+  .kpi-sub { font-size: 10px; color: var(--text-mid); display: flex; align-items: center; gap: 5px; }
+  .delta { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+  .delta.up { background: rgba(0,229,160,0.1); color: var(--birdie); }
+  .delta.down { background: rgba(255,107,53,0.1); color: var(--warn); }
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  .compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .compare-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .compare-title { font-family: 'Raleway', sans-serif; font-size: 16px; font-weight: 700; }
+  .compare-title.birdie { color: var(--birdie); }
+  .compare-title.manual { color: var(--manual); }
+  .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-key { font-size: 11px; color: var(--text-muted); }
+  .metric-val { font-size: 13px; font-weight: 500; color: var(--text); }
+  .metric-val.accent-g { color: var(--birdie); }
+  .metric-val.accent-b { color: var(--manual); }
+  .metric-val.accent-o { color: var(--warn); }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+  .chart-card.wide { grid-column: span 2; }
+  .chart-title { font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .chart-subtitle { font-size: 10px; color: var(--text-muted); margin-bottom: 18px; }
+  .bar-comparison { display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: flex; flex-direction: column; gap: 5px; }
+  .bar-row-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); }
+  .bar-row-label span:last-child { color: var(--text); font-weight: 500; }
+  .bar-bg { background: rgba(255,255,255,0.05); border-radius: 3px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 1.2s ease; }
+  .bar-fill.green { background: linear-gradient(90deg, var(--birdie), rgba(0,229,160,0.5)); }
+  .bar-fill.blue { background: linear-gradient(90deg, var(--manual), rgba(76,143,255,0.5)); }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 40px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 8px 12px; color: var(--text-muted); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-weight: 500; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; letter-spacing: 0.05em; }
+  .badge-birdie { background: var(--birdie-dim); color: var(--birdie); }
+  .badge-manual { background: var(--manual-dim); color: var(--manual); }
+  .alert-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  .alert-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; border-left: 3px solid; }
+  .alert-card.warn { border-left-color: var(--warn); }
+  .alert-card.info { border-left-color: var(--birdie); }
+  .alert-card.neutral { border-left-color: var(--manual); }
+  .alert-icon { font-size: 18px; margin-bottom: 8px; }
+  .alert-title { font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .alert-body { font-size: 11px; color: var(--text-mid); line-height: 1.6; }
+  .insight-box { background: linear-gradient(135deg, rgba(0,229,160,0.06) 0%, rgba(76,143,255,0.04) 100%); border: 1px solid rgba(0,229,160,0.15); border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; display: flex; gap: 16px; align-items: flex-start; }
+  .insight-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+  .insight-content h3 { font-family: 'Raleway', sans-serif; font-size: 14px; font-weight: 700; color: var(--birdie); margin-bottom: 6px; }
+  .insight-content p { font-size: 11px; color: var(--text-mid); line-height: 1.7; }
+  footer { padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  footer span { font-size: 10px; color: var(--text-muted); }
+  /* Loading state */
+  .loading { display: flex; align-items: center; justify-content: center; min-height: 60vh; flex-direction: column; gap: 16px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--birdie); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .source-badge { font-size: 9px; padding: 2px 8px; border-radius: 4px; background: rgba(245,200,66,0.1); color: var(--gold); border: 1px solid rgba(245,200,66,0.2); }
+  @media (max-width: 900px) {
+    .compare-grid, .alert-row { grid-template-columns: 1fr; }
+    .charts-row { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    <span style="font-size:12px;color:var(--text-muted);letter-spacing:0.1em">CARGANDO DATOS…</span>
+  </div>
+</div>
+
+<script>
+Chart.defaults.color = '#5a6580';
+Chart.defaults.font.family = "'Raleway', sans-serif";
+Chart.defaults.font.size = 10;
+
+let chartProd = null;
+let chartErr  = null;
+
+// ─── Fetch data from API ───────────────────────────────────────────────────
+async function loadData() {
+  const res  = await fetch('/api/data');
+  const data = await res.json();
+  render(data);
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const pct = (val) => `${val.toFixed(1)}%`;
+const num = (val) => typeof val === 'number' ? val.toFixed(1) : val;
+
+function deltaUp(val) {
+  return `<span class="delta up">↑ ${val}</span>`;
+}
+
+function improvePct(birdie, manual) {
+  if (!manual || manual === 0) return '—';
+  return pct(((birdie - manual) / manual) * 100);
+}
+
+function barWidth(val, max) {
+  return Math.min(Math.round((val / max) * 100), 100);
+}
+
+// ─── Main render ───────────────────────────────────────────────────────────
+function render(data) {
+  const b = data.birdie;
+  const m = data.manual;
+  const registros = data.registros;
+  const porTipo   = data.por_tipo;
+
+  const sourceLabel = data.source === 'sheets'
+    ? `<span class="source-badge">● LIVE · Google Sheets</span>`
+    : `<span class="source-badge" style="background:rgba(90,101,128,0.1);color:var(--text-muted);border-color:rgba(90,101,128,0.2)">SAMPLE DATA</span>`;
+
+  // Max docs/hora across all categories for bar scaling
+  const allDocsHora = porTipo.map(r => r.avg_docs_hora);
+  const maxDocsHora = Math.max(...allDocsHora, 1);
+
+  // Build por_tipo lookup
+  const tipo = {};
+  for (const r of porTipo) {
+    tipo[`${r.tipo}|${r.metodo}`] = r;
+  }
+
+  // Chart data: unique tipos sorted
+  const tipoNames = [...new Set(porTipo.map(r => r.tipo))].sort();
+  const birdieExpHora = tipoNames.map(t => tipo[`${t}|Birdie`]?.avg_exp_hora  ?? 0);
+  const manualExpHora = tipoNames.map(t => tipo[`${t}|Manual`]?.avg_exp_hora  ?? 0);
+
+  document.getElementById('app').innerHTML = `
+
+  <div class="container">
+
+    <!-- HEADER -->
+    <header>
+      <div class="header-left">
+        <h1>KPI Tracker <span>Coppel</span><br>Revisión Documental</h1>
+        <p>Compliance · Manual vs Birdie · ${data.periodo || '—'} · ${sourceLabel}</p>
+      </div>
+      <div class="header-right">
+        <div class="pill pill-birdie"><div class="dot dot-birdie"></div> Birdie AI</div>
+        <div class="pill pill-manual"><div class="dot dot-manual"></div> Revisión Manual</div>
+        <div class="pill pill-warn">⚠ Etiquetas: Dato clave a revisar</div>
+      </div>
+    </header>
+
+    <!-- INSIGHT -->
+    <div class="insight-box">
+      <div class="insight-icon">💡</div>
+      <div class="insight-content">
+        <h3>Resumen Ejecutivo · Piloto Coppel</h3>
+        <p>
+          Birdie procesa <strong style="color:var(--birdie)">${improvePct(b.avg_docs_hora, m.avg_docs_hora)} más documentos/hora</strong>
+          que revisión manual (${num(b.avg_docs_hora)} vs ${num(m.avg_docs_hora)} docs/hora) y
+          <strong style="color:var(--birdie)">${improvePct(b.avg_exp_hora, m.avg_exp_hora)} más expedientes/hora</strong>
+          (${num(b.avg_exp_hora)} vs ${num(m.avg_exp_hora)} exp/hora).
+          Los errores de <strong style="color:var(--warn)">etiquetas (${pct(b.tasa_error_docs)} tasa en docs Birdie)</strong>
+          son el principal punto de calibración del modelo.
+        </p>
+      </div>
+    </div>
+
+    <!-- KPI VOLUMEN -->
+    <div class="section-label">Volumen total · ${data.total_registros} bloques de revisión</div>
+    <div class="kpi-grid">
+      <div class="kpi-card gold">
+        <div class="kpi-label">Bookings revisados</div>
+        <div class="kpi-value gold">${b.bookings + m.bookings}</div>
+        <div class="kpi-sub">${b.bookings} Birdie + ${m.bookings} Manual</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Documentos (Birdie)</div>
+        <div class="kpi-value green">${b.docs}</div>
+        <div class="kpi-sub">${deltaUp(improvePct(b.docs, m.docs))} vs Manual (${m.docs} docs)</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Documentos (Manual)</div>
+        <div class="kpi-value blue">${m.docs}</div>
+        <div class="kpi-sub">${m.sesiones} sesiones de revisión</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Errores capturados (Birdie)</div>
+        <div class="kpi-value orange">${b.err_docs + b.err_etiq}</div>
+        <div class="kpi-sub">${b.err_docs} docs + ${b.err_etiq} etiquetas</div>
+      </div>
+    </div>
+
+    <!-- KPI PRODUCTIVIDAD -->
+    <div class="section-label">Productividad · Expedientes y documentos por hora</div>
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">Exp/hora · Birdie</div>
+        <div class="kpi-value green">${num(b.avg_exp_hora)}</div>
+        <div class="kpi-sub">${deltaUp(improvePct(b.avg_exp_hora, m.avg_exp_hora))} vs Manual (${num(m.avg_exp_hora)})</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Exp/hora · Manual</div>
+        <div class="kpi-value blue">${num(m.avg_exp_hora)}</div>
+        <div class="kpi-sub">Promedio de ${m.sesiones} bloques</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Docs/hora · Birdie</div>
+        <div class="kpi-value green">${num(b.avg_docs_hora)}</div>
+        <div class="kpi-sub">${deltaUp(improvePct(b.avg_docs_hora, m.avg_docs_hora))} vs Manual (${num(m.avg_docs_hora)})</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Docs/hora · Manual</div>
+        <div class="kpi-value blue">${num(m.avg_docs_hora)}</div>
+        <div class="kpi-sub">Promedio de ${m.sesiones} bloques</div>
+      </div>
+    </div>
+
+    <!-- KPI TASA ERROR -->
+    <div class="section-label">Tasa de error · Errores por documentos revisados</div>
+    <div class="kpi-grid">
+      <div class="kpi-card orange">
+        <div class="kpi-label">Tasa error docs · Birdie</div>
+        <div class="kpi-value orange">${pct(b.tasa_error_docs)}</div>
+        <div class="kpi-sub">${b.err_docs} errores / ${b.docs} documentos</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Tasa error total · Birdie</div>
+        <div class="kpi-value orange">${pct(b.tasa_error_total)}</div>
+        <div class="kpi-sub">${b.err_docs + b.err_etiq} flags / ${b.docs} docs (incl. etiquetas)</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Tasa error docs · Manual</div>
+        <div class="kpi-value white">0.0%</div>
+        <div class="kpi-sub" style="color:var(--text-muted)">Manual no usa cols J/K (solo Birdie)</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Mejora velocidad</div>
+        <div class="kpi-value green">+${Math.round(((b.avg_exp_hora - m.avg_exp_hora) / m.avg_exp_hora) * 100)}%</div>
+        <div class="kpi-sub">Birdie procesa más rápido en todas las categorías</div>
+      </div>
+    </div>
+
+    <!-- COMPARE CARDS -->
+    <div class="section-label">Detalle comparativo · Birdie vs Manual</div>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-header">
+          <div class="compare-title birdie">● Birdie</div>
+          <div class="pill pill-birdie">AI-assisted</div>
+        </div>
+        ${[
+          ['Sesiones revisadas',     `${b.sesiones} bloques`],
+          ['Bookings revisados',     `${b.bookings} BKGs`, 'accent-g'],
+          ['Documentos procesados',  `${b.docs} docs`,     'accent-g'],
+          ['Errores en documentos',  `${b.err_docs} errores`, 'accent-o'],
+          ['Errores en etiquetas',   `${b.err_etiq} flags`,   'accent-o'],
+          ['Tasa error (solo docs)', `${pct(b.tasa_error_docs)}`, 'accent-o'],
+          ['Promedio exp/hora',      `${num(b.avg_exp_hora)} exp/hr`, 'accent-g'],
+          ['Promedio docs/hora',     `${num(b.avg_docs_hora)} docs/hr`, 'accent-g'],
+        ].map(([k, v, cls='']) => `
+          <div class="metric-row">
+            <span class="metric-key">${k}</span>
+            <span class="metric-val ${cls}">${v}</span>
+          </div>`).join('')}
+      </div>
+      <div class="compare-card">
+        <div class="compare-header">
+          <div class="compare-title manual">● Manual</div>
+          <div class="pill pill-manual">Human review</div>
+        </div>
+        ${[
+          ['Sesiones revisadas',     `${m.sesiones} bloques`],
+          ['Bookings revisados',     `${m.bookings} BKGs`, 'accent-b'],
+          ['Documentos procesados',  `${m.docs} docs`,     'accent-b'],
+          ['Errores en documentos',  '— (no capturado)', ''],
+          ['Errores en etiquetas',   '— (no capturado)', ''],
+          ['Tasa error (solo docs)', 'Sin datos J/K', ''],
+          ['Promedio exp/hora',      `${num(m.avg_exp_hora)} exp/hr`, 'accent-b'],
+          ['Promedio docs/hora',     `${num(m.avg_docs_hora)} docs/hr`, 'accent-b'],
+        ].map(([k, v, cls='']) => `
+          <div class="metric-row">
+            <span class="metric-key">${k}</span>
+            <span class="metric-val ${cls}" ${!cls ? 'style="color:var(--text-muted)"' : ''}>${v}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="section-label">Análisis visual · Productividad y errores</div>
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <div class="chart-title">Productividad por tipo de expediente</div>
+        <div class="chart-subtitle">Expedientes/hora promedio — Birdie vs Manual</div>
+        <div style="position:relative;height:200px">
+          <canvas id="chartProd"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribución de errores</div>
+        <div class="chart-subtitle">Birdie: Docs vs Etiquetas vs Sin error</div>
+        <div style="position:relative;height:200px">
+          <canvas id="chartErr"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- BARS POR TIPO -->
+    <div class="section-label">Velocidad por categoría de mercancía</div>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="chart-title" style="margin-bottom:4px">Docs/hora · Birdie vs Manual</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:16px">Mayor barra = más eficiente</div>
+        <div class="bar-comparison" id="barsCategoria"></div>
+      </div>
+      <div class="compare-card">
+        <div class="chart-title" style="margin-bottom:4px">Rendimiento por revisor</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:16px">Promedio exp/hora por método</div>
+        <div class="bar-comparison" id="barsRevisor"></div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="section-label">Registro detallado · ${registros.length} bloques de revisión</div>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Revisor</th><th>Método</th><th>Tipo Exp.</th>
+            <th>BKGs</th><th>Docs</th><th>Err. Docs</th><th>Err. Etiq.</th>
+            <th>Tasa Error</th><th>Exp/hora</th><th>Docs/hora</th><th>Bloque</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${registros.map(r => {
+            const tColor = r.tasa_error_docs > 20 ? 'var(--warn)' : r.tasa_error_docs > 5 ? 'var(--gold)' : 'var(--birdie)';
+            const badge = r.metodo === 'Birdie'
+              ? `<span class="badge badge-birdie">Birdie</span>`
+              : `<span class="badge badge-manual">Manual</span>`;
+            const tasa = r.metodo === 'Birdie'
+              ? `<span style="color:${tColor}">${pct(r.tasa_error_docs)}</span>`
+              : `<span style="color:var(--text-muted)">N/D</span>`;
+            return `<tr>
+              <td>${r.num}</td>
+              <td>${r.revisor}</td>
+              <td>${badge}</td>
+              <td>${r.tipo}</td>
+              <td>${r.bookings}</td>
+              <td>${r.docs}</td>
+              <td>${r.metodo === 'Birdie' ? r.err_docs : '—'}</td>
+              <td>${r.metodo === 'Birdie' ? r.err_etiq : '—'}</td>
+              <td>${tasa}</td>
+              <td>${num(r.exp_por_hora)}</td>
+              <td>${num(r.docs_por_hora)}</td>
+              <td>${r.bloque}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="section-label">Hallazgos clave · Accionables para el equipo</div>
+    <div class="alert-row">
+      <div class="alert-card warn">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-title">Errores de etiquetas: Ropa es el punto crítico</div>
+        <div class="alert-body">Ropa tiene la mayor proporción de errores por etiqueta en Birdie. Varios son falsos positivos por diferencias de costo sin PO activa. Acción: ajustar reglas de validación para Ropa.</div>
+      </div>
+      <div class="alert-card warn">
+        <div class="alert-icon">🔍</div>
+        <div class="alert-title">Falsos positivos en etiquetas (Juguetes)</div>
+        <div class="alert-body">Errores como "fotos mal" y "Packing List ya cargado no reconocido" son limitaciones del modelo, no errores del operador. Documentar para calibración.</div>
+      </div>
+      <div class="alert-card info">
+        <div class="alert-icon">🚀</div>
+        <div class="alert-title">Calzado: mayor ganancia de velocidad con Birdie</div>
+        <div class="alert-body">Birdie logra exactamente el doble de velocidad en Calzado vs Manual. Volumen bajo para conclusiones definitivas, pero la señal de productividad es la más fuerte.</div>
+      </div>
+      <div class="alert-card neutral">
+        <div class="alert-icon">📊</div>
+        <div class="alert-title">Recomendación: capturar errores también en revisión Manual</div>
+        <div class="alert-body">Las columnas J/K solo se usan con Birdie. Para una comparación de precisión válida, registrar también los errores encontrados en revisión Manual.</div>
+      </div>
+    </div>
+
+    <footer>
+      <span>Birdie · KPI Tracker Coppel Compliance · v1.0</span>
+      <span>Datos: ${data.periodo || '—'} · ${data.total_registros} bloques</span>
+      <span id="footer-source"></span>
+    </footer>
+
+  </div>`;
+
+  // ── Charts ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartProd').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: tipoNames,
+      datasets: [
+        { label: 'Birdie (exp/h)', data: birdieExpHora, backgroundColor: 'rgba(0,229,160,0.7)', borderColor: '#00e5a0', borderWidth: 1, borderRadius: 4 },
+        { label: 'Manual (exp/h)', data: manualExpHora, backgroundColor: 'rgba(76,143,255,0.7)', borderColor: '#4c8fff', borderWidth: 1, borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8a95b0', boxWidth: 12, padding: 16 } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a6580' } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a6580' }, title: { display: true, text: 'Exp/hora', color: '#5a6580' } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('chartErr').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Errores docs', 'Errores etiquetas', 'Sin errores (aprox)'],
+      datasets: [{
+        data: [b.err_docs, b.err_etiq, Math.max(0, b.docs - b.err_docs)],
+        backgroundColor: ['rgba(255,107,53,0.85)', 'rgba(245,200,66,0.85)', 'rgba(0,229,160,0.3)'],
+        borderColor: ['#ff6b35', '#f5c842', '#00e5a0'],
+        borderWidth: 1.5, hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#8a95b0', boxWidth: 10, padding: 12, font: { size: 10 } } } }
+    }
+  });
+
+  // ── Bars categoría ────────────────────────────────────────────────────────
+  const barsEl = document.getElementById('barsCategoria');
+  tipoNames.forEach(t => {
+    const bv = tipo[`${t}|Birdie`]?.avg_docs_hora ?? 0;
+    const mv = tipo[`${t}|Manual`]?.avg_docs_hora ?? 0;
+    barsEl.innerHTML += `
+      <div class="bar-row">
+        <div class="bar-row-label"><span>${t} · Birdie</span><span>${num(bv)} d/h</span></div>
+        <div class="bar-bg"><div class="bar-fill green" style="width:${barWidth(bv, maxDocsHora)}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-row-label"><span>${t} · Manual</span><span>${num(mv)} d/h</span></div>
+        <div class="bar-bg"><div class="bar-fill blue" style="width:${barWidth(mv, maxDocsHora)}%"></div></div>
+      </div>`;
+  });
+
+  // ── Bars revisor ─────────────────────────────────────────────────────────
+  const revisorMap = {};
+  for (const r of registros) {
+    const key = `${r.revisor}|${r.metodo}`;
+    if (!revisorMap[key]) revisorMap[key] = { vals: [], revisor: r.revisor, metodo: r.metodo };
+    revisorMap[key].vals.push(r.exp_por_hora);
+  }
+  const revisores = [...new Set(registros.map(r => r.revisor))].sort();
+  const maxRevVal = Math.max(...Object.values(revisorMap).map(v => v.vals.reduce((a, b) => a + b, 0) / v.vals.length), 1);
+  const revisorEl = document.getElementById('barsRevisor');
+  ['Birdie', 'Manual'].forEach(met => {
+    revisorEl.innerHTML += `<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;margin-top:${met==='Manual'?'16px':'0'}">${met}</div>`;
+    revisores.forEach(rev => {
+      const d = revisorMap[`${rev}|${met}`];
+      if (!d) return;
+      const avg = d.vals.reduce((a, b) => a + b, 0) / d.vals.length;
+      const cls = met === 'Birdie' ? 'green' : 'blue';
+      revisorEl.innerHTML += `
+        <div class="bar-row">
+          <div class="bar-row-label"><span>${rev}</span><span>${num(avg)} exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${barWidth(avg, maxRevVal)}%"></div></div>
+        </div>`;
+    });
+  });
+
+  // Footer source
+  document.getElementById('footer-source').textContent =
+    data.source === 'sheets' ? 'Fuente: Google Sheets (live)' : 'Fuente: Datos de muestra';
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────
+loadData().catch(err => {
+  document.getElementById('app').innerHTML = `
+    <div class="loading">
+      <span style="color:var(--warn);font-size:13px">Error cargando datos: ${err.message}</span>
+    </div>`;
+});
+
+// Auto-refresh cada 5 min si hay Sheets configurado
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>

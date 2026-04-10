@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Birdie — KPI Dashboard Coppel Compliance</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --surface2: #171d2e;
+    --border: #1e2840;
+    --birdie: #00e5a0;
+    --birdie-dim: rgba(0,229,160,0.12);
+    --birdie-mid: rgba(0,229,160,0.4);
+    --manual: #4c8fff;
+    --manual-dim: rgba(76,143,255,0.12);
+    --manual-mid: rgba(76,143,255,0.4);
+    --warn: #ff6b35;
+    --warn-dim: rgba(255,107,53,0.12);
+    --text: #e8eaf0;
+    --text-muted: #5a6580;
+    --text-mid: #8a95b0;
+    --gold: #f5c842;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Raleway', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .header-left h1 {
+    font-family: 'Raleway', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    color: var(--text);
+  }
+
+  .header-left h1 span {
+    color: var(--birdie);
+  }
+
+  .header-left p {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .pill-birdie { background: var(--birdie-dim); color: var(--birdie); border: 1px solid rgba(0,229,160,0.2); }
+  .pill-manual { background: var(--manual-dim); color: var(--manual); border: 1px solid rgba(76,143,255,0.2); }
+  .pill-warn { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(255,107,53,0.2); }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-birdie { background: var(--birdie); box-shadow: 0 0 6px var(--birdie); animation: pulse 2s infinite; }
+  .dot-manual { background: var(--manual); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* SECTION LABELS */
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* KPI CARDS GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .kpi-card:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--birdie), transparent); }
+  .kpi-card.blue::before { background: linear-gradient(90deg, var(--manual), transparent); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, var(--warn), transparent); }
+  .kpi-card.gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+
+  .kpi-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-family: 'Raleway', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .kpi-value.green { color: var(--birdie); }
+  .kpi-value.blue { color: var(--manual); }
+  .kpi-value.orange { color: var(--warn); }
+  .kpi-value.gold { color: var(--gold); }
+  .kpi-value.white { color: var(--text); }
+
+  .kpi-sub {
+    font-size: 10px;
+    color: var(--text-mid);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .delta.up { background: rgba(0,229,160,0.1); color: var(--birdie); }
+  .delta.down { background: rgba(255,107,53,0.1); color: var(--warn); }
+
+  /* TWO COL COMPARISON */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .compare-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .compare-title {
+    font-family: 'Raleway', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .compare-title.birdie { color: var(--birdie); }
+  .compare-title.manual { color: var(--manual); }
+
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .metric-row:last-child { border-bottom: none; }
+
+  .metric-key {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .metric-val {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .metric-val.accent-g { color: var(--birdie); }
+  .metric-val.accent-b { color: var(--manual); }
+  .metric-val.accent-o { color: var(--warn); }
+
+  /* ERROR ANALYSIS */
+  .error-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  /* CHARTS */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+
+  .chart-card.wide {
+    grid-column: span 2;
+  }
+
+  .chart-title {
+    font-family: 'Raleway', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+  }
+
+  .chart-wrap {
+    position: relative;
+  }
+
+  /* BAR COMPARISON rows */
+  .bar-comparison {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .bar-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .bar-row-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .bar-row-label span:last-child {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .bar-bg {
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    height: 8px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .bar-fill.green { background: linear-gradient(90deg, var(--birdie), rgba(0,229,160,0.5)); }
+  .bar-fill.blue { background: linear-gradient(90deg, var(--manual), rgba(76,143,255,0.5)); }
+
+  /* REVISOR TABLE */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 40px;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--text-muted);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-birdie { background: var(--birdie-dim); color: var(--birdie); }
+  .badge-manual { background: var(--manual-dim); color: var(--manual); }
+
+  /* ALERT BOX */
+  .alert-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .alert-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    border-left: 3px solid;
+  }
+
+  .alert-card.warn { border-left-color: var(--warn); }
+  .alert-card.info { border-left-color: var(--birdie); }
+  .alert-card.neutral { border-left-color: var(--manual); }
+
+  .alert-icon {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .alert-title {
+    font-family: 'Raleway', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .alert-body {
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.6;
+  }
+
+  /* PROGRESS RING */
+  .ring-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 12px 0;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+  }
+
+  .ring-wrap svg { transform: rotate(-90deg); }
+
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Raleway', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .ring-info h3 {
+    font-family: 'Raleway', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .ring-info p {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  /* FOOTER */
+  footer {
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  footer span {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* INSIGHT BOX */
+  .insight-box {
+    background: linear-gradient(135deg, rgba(0,229,160,0.06) 0%, rgba(76,143,255,0.04) 100%);
+    border: 1px solid rgba(0,229,160,0.15);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .insight-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .insight-content h3 {
+    font-family: 'Raleway', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--birdie);
+    margin-bottom: 6px;
+  }
+
+  .insight-content p {
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 900px) {
+    .compare-grid, .error-grid, .alert-row { grid-template-columns: 1fr; }
+    .charts-row { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <h1>KPI Tracker <span>Coppel</span><br>Revisión Documental</h1>
+      <p>Compliance · Manual vs Birdie · Semana 09–10 Abr 2026</p>
+    </div>
+    <div class="header-right">
+      <div class="pill pill-birdie"><div class="dot dot-birdie"></div> Birdie AI</div>
+      <div class="pill pill-manual"><div class="dot dot-manual"></div> Revisión Manual</div>
+      <div class="pill pill-warn">⚠ Etiquetas: Dato clave a revisar</div>
+    </div>
+  </header>
+
+  <!-- INSIGHT BOX -->
+  <div class="insight-box">
+    <div class="insight-icon">💡</div>
+    <div class="insight-content">
+      <h3>Resumen Ejecutivo · Piloto Coppel</h3>
+      <p>
+        Birdie procesa <strong style="color:var(--birdie)">51% más documentos/hora</strong> que revisión manual (37.0 vs 23.1 docs/hora) y
+        <strong style="color:var(--birdie)">51% más expedientes/hora</strong> (8.5 vs 5.7 exp/hora).
+        Los errores de <strong style="color:var(--warn)">etiquetas (14.56% tasa en docs Birdie)</strong> son el principal punto de mejora — 
+        muchos son falsos positivos de validación de reglas, no errores reales del operador.
+        Revisión Manual no captura errores en J/K por diseño (solo aplica a Birdie).
+      </p>
+    </div>
+  </div>
+
+  <!-- KPI CARDS ROW 1: VOLUMEN -->
+  <div class="section-label">Volumen total · 16 bloques de revisión</div>
+  <div class="kpi-grid">
+    <div class="kpi-card gold">
+      <div class="kpi-label">Bookings revisados</div>
+      <div class="kpi-value gold">41</div>
+      <div class="kpi-sub">22 Birdie + 19 Manual</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Documentos (Birdie)</div>
+      <div class="kpi-value green">103</div>
+      <div class="kpi-sub"><span class="delta up">↑ 17%</span> vs Manual (88 docs)</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Documentos (Manual)</div>
+      <div class="kpi-value blue">88</div>
+      <div class="kpi-sub">8 sesiones de revisión</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Errores capturados (Birdie)</div>
+      <div class="kpi-value orange">91</div>
+      <div class="kpi-sub">15 docs + 76 etiquetas</div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS ROW 2: PRODUCTIVIDAD -->
+  <div class="section-label">Productividad · Expedientes y documentos por hora</div>
+  <div class="kpi-grid">
+    <div class="kpi-card green">
+      <div class="kpi-label">Exp/hora · Birdie</div>
+      <div class="kpi-value green">8.5</div>
+      <div class="kpi-sub"><span class="delta up">↑ 51%</span> vs Manual (5.7)</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Exp/hora · Manual</div>
+      <div class="kpi-value blue">5.7</div>
+      <div class="kpi-sub">Promedio de 8 bloques</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Docs/hora · Birdie</div>
+      <div class="kpi-value green">37.0</div>
+      <div class="kpi-sub"><span class="delta up">↑ 60%</span> vs Manual (23.1)</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Docs/hora · Manual</div>
+      <div class="kpi-value blue">23.1</div>
+      <div class="kpi-sub">Promedio de 8 bloques</div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS ROW 3: TASA DE ERROR -->
+  <div class="section-label">Tasa de error · Errores por documentos revisados</div>
+  <div class="kpi-grid">
+    <div class="kpi-card orange">
+      <div class="kpi-label">Tasa error docs · Birdie</div>
+      <div class="kpi-value orange">14.6%</div>
+      <div class="kpi-sub">15 errores / 103 documentos</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Tasa error total · Birdie</div>
+      <div class="kpi-value orange">88.3%</div>
+      <div class="kpi-sub">91 flags / 103 docs (incl. etiquetas)</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Tasa error docs · Manual</div>
+      <div class="kpi-value white">0.0%</div>
+      <div class="kpi-sub">Manual no usa cols J/K (solo Birdie)</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Mejora velocidad</div>
+      <div class="kpi-value green">+51%</div>
+      <div class="kpi-sub">Birdie procesa más rápido siempre</div>
+    </div>
+  </div>
+
+  <!-- COMPARE: BIRDIE vs MANUAL CARDS -->
+  <div class="section-label">Detalle comparativo · Birdie vs Manual</div>
+  <div class="compare-grid">
+    <div class="compare-card">
+      <div class="compare-header">
+        <div class="compare-title birdie">● Birdie</div>
+        <div class="pill pill-birdie">AI-assisted</div>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Sesiones revisadas</span>
+        <span class="metric-val">8 bloques</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Bookings revisados</span>
+        <span class="metric-val accent-g">22 BKGs</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Documentos procesados</span>
+        <span class="metric-val accent-g">103 docs</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Etiquetas validadas</span>
+        <span class="metric-val">121 etiq.</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Errores en documentos</span>
+        <span class="metric-val accent-o">15 errores</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Errores en etiquetas</span>
+        <span class="metric-val accent-o">76 flags</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Tasa error (solo docs)</span>
+        <span class="metric-val accent-o">14.56%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Promedio exp/hora</span>
+        <span class="metric-val accent-g">8.54 exp/hr</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Promedio docs/hora</span>
+        <span class="metric-val accent-g">37.00 docs/hr</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Tiempo promedio/bloque</span>
+        <span class="metric-val">~20.5 min</span>
+      </div>
+    </div>
+
+    <div class="compare-card">
+      <div class="compare-header">
+        <div class="compare-title manual">● Manual</div>
+        <div class="pill pill-manual">Human review</div>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Sesiones revisadas</span>
+        <span class="metric-val">8 bloques</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Bookings revisados</span>
+        <span class="metric-val accent-b">19 BKGs</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Documentos procesados</span>
+        <span class="metric-val accent-b">88 docs</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Etiquetas validadas</span>
+        <span class="metric-val">158 etiq.</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Errores en documentos</span>
+        <span class="metric-val" style="color:var(--text-muted)">— (no capturado)</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Errores en etiquetas</span>
+        <span class="metric-val" style="color:var(--text-muted)">— (no capturado)</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Tasa error (solo docs)</span>
+        <span class="metric-val" style="color:var(--text-muted)">Sin datos J/K</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Promedio exp/hora</span>
+        <span class="metric-val accent-b">5.67 exp/hr</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Promedio docs/hora</span>
+        <span class="metric-val accent-b">23.12 docs/hr</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Tiempo promedio/bloque</span>
+        <span class="metric-val">~28.8 min</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="section-label">Análisis visual · Productividad y errores</div>
+  <div class="charts-row">
+    <div class="chart-card wide">
+      <div class="chart-title">Productividad por tipo de expediente</div>
+      <div class="chart-subtitle">Expedientes/hora promedio — Birdie vs Manual</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chartProd"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Distribución de errores</div>
+      <div class="chart-subtitle">Birdie: Docs vs Etiquetas</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chartErr"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUTIVIDAD BARS por tipo -->
+  <div class="section-label">Velocidad por categoría de mercancía</div>
+  <div class="compare-grid">
+    <div class="compare-card">
+      <div class="chart-title" style="margin-bottom:4px">Docs/hora · Birdie vs Manual</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:16px">Mayor barra = más eficiente</div>
+      <div class="bar-comparison">
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Muebles · Birdie</span><span>34.0 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:74%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Muebles · Manual</span><span>22.4 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:49%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Juguetes · Birdie</span><span>41.4 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:90%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Juguetes · Manual</span><span>27.3 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:60%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Ropa · Birdie</span><span>28.9 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:63%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Ropa · Manual</span><span>22.2 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:48%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Calzado · Birdie</span><span>24.0 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:52%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>Calzado · Manual</span><span>12.0 d/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:26%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-card">
+      <div class="chart-title" style="margin-bottom:4px">Rendimiento por revisor (Birdie)</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:16px">Promedio exp/hora en bloques con Birdie</div>
+      <div class="bar-comparison">
+        <div class="bar-row">
+          <div class="bar-row-label"><span>FERNANDO</span><span>9.69 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:81%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>LAURA</span><span>9.00 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:75%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>VALERIA</span><span>8.28 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:69%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>ERIKA</span><span>6.82 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill green" style="width:57%"></div></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="chart-title" style="margin-bottom:4px;font-size:12px">Rendimiento por revisor (Manual)</div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>FERNANDO</span><span>9.85 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:82%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>VALERIA</span><span>5.12 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:43%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>ERIKA</span><span>5.01 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:42%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-row-label"><span>LAURA</span><span>3.50 exp/h</span></div>
+          <div class="bar-bg"><div class="bar-fill blue" style="width:29%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE: REGISTRO DETALLE -->
+  <div class="section-label">Registro detallado · 16 bloques de revisión</div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Revisor</th>
+          <th>Método</th>
+          <th>Tipo Exp.</th>
+          <th>Bookings</th>
+          <th>Documentos</th>
+          <th>Err. Docs</th>
+          <th>Err. Etiq.</th>
+          <th>Tasa Error (docs)</th>
+          <th>Exp/hora</th>
+          <th>Docs/hora</th>
+          <th>Bloque</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>LAURA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Muebles</td><td>1</td><td>18</td><td>1</td><td>0</td><td><span style="color:var(--warn)">5.6%</span></td><td>3.0</td><td>54.0</td><td>Mañana</td></tr>
+        <tr><td>2</td><td>LAURA</td><td><span class="badge badge-manual">Manual</span></td><td>Muebles</td><td>1</td><td>21</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>1.5</td><td>31.5</td><td>Mañana</td></tr>
+        <tr><td>3</td><td>ERIKA</td><td><span class="badge badge-manual">Manual</span></td><td>Ropa</td><td>2</td><td>6</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>4.8</td><td>14.4</td><td>Mañana</td></tr>
+        <tr><td>4</td><td>ERIKA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Ropa</td><td>3</td><td>9</td><td>5</td><td>20</td><td><span style="color:var(--warn)">55.6%</span></td><td>6.4</td><td>19.3</td><td>Mañana</td></tr>
+        <tr><td>5</td><td>LAURA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Calzado</td><td>1</td><td>2</td><td>1</td><td>0</td><td><span style="color:var(--warn)">50.0%</span></td><td>12.0</td><td>24.0</td><td>Tarde</td></tr>
+        <tr><td>6</td><td>LAURA</td><td><span class="badge badge-manual">Manual</span></td><td>Calzado</td><td>1</td><td>2</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>6.0</td><td>12.0</td><td>Tarde</td></tr>
+        <tr><td>7</td><td>FERNANDO</td><td><span class="badge badge-manual">Manual</span></td><td>Muebles</td><td>5</td><td>19</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>10.6</td><td>40.4</td><td>Mañana</td></tr>
+        <tr><td>8</td><td>FERNANDO</td><td><span class="badge badge-birdie">Birdie</span></td><td>Muebles</td><td>5</td><td>24</td><td>1</td><td>5</td><td><span style="color:var(--gold)">4.2%</span></td><td>9.6</td><td>46.1</td><td>Mañana</td></tr>
+        <tr><td>9</td><td>LAURA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Muebles</td><td>1</td><td>4</td><td>1</td><td>0</td><td><span style="color:var(--warn)">25.0%</span></td><td>12.0</td><td>48.0</td><td>Tarde</td></tr>
+        <tr><td>10</td><td>LAURA</td><td><span class="badge badge-manual">Manual</span></td><td>Muebles</td><td>1</td><td>4</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>3.0</td><td>12.0</td><td>Tarde</td></tr>
+        <tr><td>11</td><td>ERIKA</td><td><span class="badge badge-manual">Manual</span></td><td>Ropa</td><td>2</td><td>6</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>5.2</td><td>15.7</td><td>Tarde</td></tr>
+        <tr><td>12</td><td>ERIKA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Ropa</td><td>3</td><td>8</td><td>3</td><td>24</td><td><span style="color:var(--warn)">37.5%</span></td><td>7.2</td><td>19.2</td><td>Tarde</td></tr>
+        <tr><td>13</td><td>VALERIA</td><td><span class="badge badge-manual">Manual</span></td><td>Juguetes</td><td>3</td><td>16</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>5.1</td><td>27.3</td><td>Tarde</td></tr>
+        <tr><td>14</td><td>FERNANDO</td><td><span class="badge badge-manual">Manual</span></td><td>Muebles</td><td>4</td><td>14</td><td>—</td><td>—</td><td style="color:var(--text-muted)">N/D</td><td>9.1</td><td>31.7</td><td>Tarde</td></tr>
+        <tr><td>15</td><td>FERNANDO</td><td><span class="badge badge-birdie">Birdie</span></td><td>Muebles</td><td>4</td><td>18</td><td>1</td><td>2</td><td><span style="color:var(--gold)">5.6%</span></td><td>9.8</td><td>44.0</td><td>Tarde</td></tr>
+        <tr><td>16</td><td>VALERIA</td><td><span class="badge badge-birdie">Birdie</span></td><td>Juguetes</td><td>4</td><td>20</td><td>2</td><td>25</td><td><span style="color:var(--warn)">10.0%</span></td><td>8.3</td><td>41.4</td><td>Tarde</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="section-label">Hallazgos clave · Accionables para el equipo</div>
+  <div class="alert-row">
+    <div class="alert-card warn">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-title">Errores de etiquetas: Ropa es el punto crítico</div>
+      <div class="alert-body">
+        Ropa tiene la mayor proporción de errores por etiqueta en Birdie (44 errores sobre 17 docs). 
+        Varios son falsos positivos por diferencias de costo que Birdie detecta pero no puede validar sin PO activa.
+        Acción: ajustar reglas de validación para Ropa.
+      </div>
+    </div>
+    <div class="alert-card warn">
+      <div class="alert-icon">🔍</div>
+      <div class="alert-title">Falsos positivos en etiquetas (Juguetes · Valeria)</div>
+      <div class="alert-body">
+        Bloque 16 registra 25 errores de etiquetas con solo 20 documentos revisados. 
+        Las notas indican que errores como "fotos mal" y "Packing List ya cargado no reconocido" son limitaciones del modelo,
+        no errores reales del operador. Documentar para calibración del modelo.
+      </div>
+    </div>
+    <div class="alert-card info">
+      <div class="alert-icon">🚀</div>
+      <div class="alert-title">Calzado: mayor ganancia de velocidad con Birdie</div>
+      <div class="alert-body">
+        En Calzado, Birdie logra 24.0 docs/hora vs 12.0 Manual — exactamente el doble de velocidad.
+        Solo 1 error de documento detectado en 2 docs (50%). Volumen bajo para conclusiones definitivas,
+        pero la señal de productividad es la más fuerte de todas las categorías.
+      </div>
+    </div>
+    <div class="alert-card neutral">
+      <div class="alert-icon">📊</div>
+      <div class="alert-title">Recomendación: capturar errores también en revisión Manual</div>
+      <div class="alert-body">
+        Actualmente las columnas J y K solo se usan cuando el método es Birdie.
+        Para una comparación de precisión válida, se recomienda que los revisores también capturen
+        errores encontrados en revisión Manual. Esto habilitará un KPI de comparación de calidad real.
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <span>Birdie · KPI Tracker Coppel Compliance · v1.0</span>
+    <span>Datos: 09–10 Abril 2026 · 16 bloques · 4 revisores</span>
+    <span>Próxima actualización: conexión directa con Google Sheets</span>
+  </footer>
+
+</div>
+
+<script>
+Chart.defaults.color = '#5a6580';
+Chart.defaults.font.family = "'Raleway', sans-serif";
+Chart.defaults.font.size = 10;
+
+// Chart 1: Productividad por tipo
+const ctx1 = document.getElementById('chartProd').getContext('2d');
+new Chart(ctx1, {
+  type: 'bar',
+  data: {
+    labels: ['Calzado', 'Juguetes', 'Muebles', 'Ropa'],
+    datasets: [
+      {
+        label: 'Birdie (exp/h)',
+        data: [12.0, 8.28, 8.89, 6.82],
+        backgroundColor: 'rgba(0,229,160,0.7)',
+        borderColor: '#00e5a0',
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: 'Manual (exp/h)',
+        data: [6.0, 5.12, 5.89, 4.93],
+        backgroundColor: 'rgba(76,143,255,0.7)',
+        borderColor: '#4c8fff',
+        borderWidth: 1,
+        borderRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: { color: '#8a95b0', boxWidth: 12, padding: 16 }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#5a6580' }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#5a6580' },
+        title: { display: true, text: 'Exp/hora', color: '#5a6580' }
+      }
+    }
+  }
+});
+
+// Chart 2: Distribución errores Birdie
+const ctx2 = document.getElementById('chartErr').getContext('2d');
+new Chart(ctx2, {
+  type: 'doughnut',
+  data: {
+    labels: ['Errores docs', 'Errores etiquetas', 'Sin errores'],
+    datasets: [{
+      data: [15, 76, 12],
+      backgroundColor: [
+        'rgba(255,107,53,0.85)',
+        'rgba(245,200,66,0.85)',
+        'rgba(0,229,160,0.3)'
+      ],
+      borderColor: ['#ff6b35', '#f5c842', '#00e5a0'],
+      borderWidth: 1.5,
+      hoverOffset: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#8a95b0', boxWidth: 10, padding: 12, font: { size: 10 } }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
