@@ -35,32 +35,56 @@ templates = Jinja2Templates(directory="templates")
 SHEETS_URL     = os.getenv("SHEETS_WEBAPP_URL", "")
 SHEETS_CSV_URL = os.getenv("SHEETS_CSV_URL", "")
 
-# Mapeo de encabezados CSV → campos internos (ajusta si tus encabezados difieren)
+# El Sheet tiene 4 filas antes de los headers reales (título, subtítulo, vacía, grupo)
+CSV_HEADER_ROW = 4  # índice 0-based de la fila con los encabezados reales
+
+# Mapeo de encabezados CSV → campos internos
+# Los headers del Sheet tienen saltos de línea, los normalizamos antes de comparar
 CSV_COL = {
-    "num":       ["#", "num", "No", "no"],
-    "fecha":     ["Fecha", "fecha", "FECHA"],
-    "bloque":    ["Bloque", "bloque", "BLOQUE"],
-    "revisor":   ["Revisor", "revisor", "REVISOR"],
-    "metodo":    ["Método", "Metodo", "metodo", "METODO"],
-    "tipo":      ["Tipo de expediente", "Tipo", "tipo", "TIPO"],
-    "bookings":  ["Bookings revisados", "Bookings", "bookings"],
-    "docs":      ["Documentos revisados", "Docs", "docs"],
-    "etiquetas": ["Etiquetas revisadas", "Etiquetas", "etiquetas"],
-    "err_docs":  ["Errores documentos", "Err docs", "err_docs"],
-    "err_etiq":  ["Errores etiquetas", "Err etiq", "err_etiq"],
-    "tiempo":    ["Tiempo bloque (min)", "Tiempo", "tiempo"],
+    "num":       ["#"],
+    "fecha":     ["Fecha"],
+    "bloque":    ["Bloque"],
+    "revisor":   ["Revisor"],
+    "metodo":    ["Método", "Metodo"],
+    "tipo":      ["Tipo de expediente"],
+    "bookings":  ["Bookings revisados"],
+    "docs":      ["Documentos revisados"],
+    "etiquetas": ["Etiquetas revisadas"],
+    "err_docs":  ["Errores documentos: Error en validacion de reglas",
+                  "Errores documentos:Error en validacion de reglas",
+                  "Errores documentos"],
+    "err_etiq":  ["Errores etiquetas: Error en validacion de reglas",
+                  "Errores etiquetas:Error en validacion de reglas",
+                  "Errores etiquetas"],
+    "tiempo":    ["Tiempo bloque (min)"],
 }
 
 
+def _normalize(s: str) -> str:
+    """Elimina saltos de línea y espacios extra para comparación."""
+    return " ".join(s.replace("\n", " ").split()).strip()
+
+
 def _find_col(header_row: list[str], candidates: list[str]) -> str | None:
+    norm_map = {_normalize(h): h for h in header_row}
     for c in candidates:
-        if c in header_row:
-            return c
+        original = norm_map.get(_normalize(c))
+        if original:
+            return original
     return None
 
 
 def parse_csv_to_payload(csv_text: str) -> dict:
-    reader = csv.DictReader(io.StringIO(csv_text))
+    lines = csv_text.splitlines()
+    # Saltar filas de título hasta encontrar la fila que empieza con "#"
+    header_idx = 0
+    for i, line in enumerate(lines):
+        if line.strip().startswith("#") or line.strip().startswith('"#"'):
+            header_idx = i
+            break
+
+    data_csv = "\n".join(lines[header_idx:])
+    reader = csv.DictReader(io.StringIO(data_csv))
     headers = reader.fieldnames or []
 
     col_map = {field: _find_col(headers, candidates) for field, candidates in CSV_COL.items()}
