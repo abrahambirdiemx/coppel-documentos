@@ -75,62 +75,86 @@ def _find_col(header_row: list[str], candidates: list[str]) -> str | None:
 
 
 def parse_csv_to_payload(csv_text: str) -> dict:
-    lines = csv_text.splitlines()
-    # Saltar filas de título hasta encontrar la fila que empieza con "#"
-    header_idx = 0
-    for i, line in enumerate(lines):
-        if line.strip().startswith("#") or line.strip().startswith('"#"'):
+    # Usar csv.reader para manejar correctamente campos con saltos de línea
+    all_rows = list(csv.reader(io.StringIO(csv_text)))
+
+    # Buscar la fila real de encabezados: la que contiene "Fecha" y "Bloque"
+    header_idx = None
+    for i, row in enumerate(all_rows):
+        normalized = [_normalize(c) for c in row]
+        if "Fecha" in normalized and "Bloque" in normalized:
             header_idx = i
             break
 
-    data_csv = "\n".join(lines[header_idx:])
-    reader = csv.DictReader(io.StringIO(data_csv))
-    headers = reader.fieldnames or []
+    if header_idx is None:
+        return get_sample_data()
 
-    col_map = {field: _find_col(headers, candidates) for field, candidates in CSV_COL.items()}
+    headers = [_normalize(h) for h in all_rows[header_idx]]
+    data_rows = all_rows[header_idx + 1:]
+
+    # col_map ahora mapea campo → índice de columna
+    def find_idx(candidates):
+        for c in candidates:
+            nc = _normalize(c)
+            if nc in headers:
+                return headers.index(nc)
+        return None
+
+    col_idx = {field: find_idx(candidates) for field, candidates in CSV_COL.items()}
+
+    def get_cell(row, field):
+        idx = col_idx.get(field)
+        if idx is None or idx >= len(row):
+            return ""
+        return row[idx].strip()
+
+    def flt(row, field):
+        val = get_cell(row, field).replace(",", ".").replace("%", "")
+        try:
+            return float(val)
+        except ValueError:
+            return 0.0
 
     registros = []
-    for row in reader:
-        num = row.get(col_map["num"] or "", "").strip()
-        fecha = row.get(col_map["fecha"] or "", "").strip()
-        metodo = row.get(col_map["metodo"] or "", "").strip()
-        if not num or not fecha or not metodo:
+    for row in data_rows:
+        num   = get_cell(row, "num")
+        fecha = get_cell(row, "fecha")
+        metodo = get_cell(row, "metodo")
+        if not num or not fecha or not metodo or num == "#":
             continue
 
-        def flt(field):
-            val = row.get(col_map[field] or "", "0").strip().replace(",", ".")
-            try:
-                return float(val)
-            except ValueError:
-                return 0.0
+        docs    = flt(row, "docs")
+        tiempo  = flt(row, "tiempo")
+        bk      = flt(row, "bookings")
+        err_docs = flt(row, "err_docs")
+        err_etiq = flt(row, "err_etiq")
 
-        docs = flt("docs")
-        tiempo = flt("tiempo")
-        bk = flt("bookings")
-        err_docs = flt("err_docs")
-        err_etiq = flt("err_etiq")
-
-        exp_por_hora  = round(bk / (tiempo / 60), 2) if tiempo > 0 else 0
-        docs_por_hora = round(docs / (tiempo / 60), 2) if tiempo > 0 else 0
-        tasa_error     = round((err_docs + err_etiq) / docs * 100, 2) if docs > 0 else 0
+        exp_por_hora   = round(bk   / (tiempo / 60), 2) if tiempo > 0 else 0
+        docs_por_hora  = round(docs / (tiempo / 60), 2) if tiempo > 0 else 0
+        tasa_error      = round((err_docs + err_etiq) / docs * 100, 2) if docs > 0 else 0
         tasa_error_docs = round(err_docs / docs * 100, 2) if docs > 0 else 0
 
+        try:
+            num_val = float(num)
+        except ValueError:
+            continue
+
         registros.append({
-            "num":            float(num) if num.replace(".", "").isdigit() else 0,
-            "fecha":          fecha,
-            "bloque":         row.get(col_map["bloque"] or "", "").strip(),
-            "revisor":        row.get(col_map["revisor"] or "", "").strip(),
-            "metodo":         metodo,
-            "tipo":           row.get(col_map["tipo"] or "", "").strip(),
-            "bookings":       bk,
-            "docs":           docs,
-            "etiquetas":      flt("etiquetas"),
-            "err_docs":       err_docs,
-            "err_etiq":       err_etiq,
-            "tiempo":         tiempo,
-            "exp_por_hora":   exp_por_hora,
-            "docs_por_hora":  docs_por_hora,
-            "tasa_error":     tasa_error,
+            "num":             num_val,
+            "fecha":           fecha,
+            "bloque":          get_cell(row, "bloque"),
+            "revisor":         get_cell(row, "revisor").strip(),
+            "metodo":          metodo,
+            "tipo":            get_cell(row, "tipo"),
+            "bookings":        bk,
+            "docs":            docs,
+            "etiquetas":       flt(row, "etiquetas"),
+            "err_docs":        err_docs,
+            "err_etiq":        err_etiq,
+            "tiempo":          tiempo,
+            "exp_por_hora":    exp_por_hora,
+            "docs_por_hora":   docs_por_hora,
+            "tasa_error":      tasa_error,
             "tasa_error_docs": tasa_error_docs,
         })
 
