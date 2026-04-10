@@ -160,6 +160,7 @@ let chartErr  = null;
 async function loadData() {
   const res  = await fetch('/api/data');
   const data = await res.json();
+  console.log('[DEBUG] /api/data response:', JSON.stringify(data, null, 2));
   render(data);
 }
 
@@ -309,7 +310,7 @@ function render(data) {
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Mejora velocidad</div>
-        <div class="kpi-value green">+${Math.round(((b.avg_exp_hora - m.avg_exp_hora) / m.avg_exp_hora) * 100)}%</div>
+        <div class="kpi-value green">${improvePct(b.avg_exp_hora, m.avg_exp_hora)}</div>
         <div class="kpi-sub">Birdie procesa más rápido en todas las categorías</div>
       </div>
     </div>
