@@ -164,15 +164,15 @@ async function loadData() {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-const pct = (val) => `${val.toFixed(1)}%`;
-const num = (val) => typeof val === 'number' ? val.toFixed(1) : val;
+const pct = (val) => (val == null || isNaN(val)) ? '—' : `${Number(val).toFixed(1)}%`;
+const num = (val) => (val == null || isNaN(val)) ? '—' : Number(val).toFixed(1);
 
 function deltaUp(val) {
   return `<span class="delta up">↑ ${val}</span>`;
 }
 
 function improvePct(birdie, manual) {
-  if (!manual || manual === 0) return '—';
+  if (birdie == null || manual == null || isNaN(birdie) || isNaN(manual) || manual === 0) return '—';
   return pct(((birdie - manual) / manual) * 100);
 }
 
