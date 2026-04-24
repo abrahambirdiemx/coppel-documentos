@@ -60,8 +60,13 @@ function buildPayload() {
     const tiempo = getCell(COL.TIEMPO);
     const bk     = getCell(COL.BOOKINGS);
 
-    // Skip empty rows
+    // Skip rows without required identifiers
     if (!num || !fecha || !metodo) continue;
+    // Skip rows with no numeric data at all (filas incompletas)
+    const docsCheck  = parseFloat(docs)   || 0;
+    const bkCheck    = parseFloat(bk)     || 0;
+    const tiempoCheck = parseFloat(tiempo) || 0;
+    if (docsCheck === 0 && bkCheck === 0 && tiempoCheck === 0) continue;
 
     const errDocs = parseFloat(getCell(COL.ERR_DOCS)) || 0;
     const errEtiq = parseFloat(getCell(COL.ERR_ETIQ)) || 0;
@@ -105,21 +110,24 @@ function buildPayload() {
   function agg(rows) {
     if (!rows.length) return {};
     const totalDocs    = rows.reduce((s, r) => s + r.docs, 0);
+    const totalEtiq    = rows.reduce((s, r) => s + r.etiquetas, 0);
     const totalBk      = rows.reduce((s, r) => s + r.bookings, 0);
     const totalErrDocs = rows.reduce((s, r) => s + r.err_docs, 0);
     const totalErrEtiq = rows.reduce((s, r) => s + r.err_etiq, 0);
     const avgExpH  = round2(rows.reduce((s, r) => s + r.exp_por_hora, 0)  / rows.length);
     const avgDocH  = round2(rows.reduce((s, r) => s + r.docs_por_hora, 0) / rows.length);
     return {
-      sesiones:         rows.length,
-      bookings:         totalBk,
-      docs:             totalDocs,
-      err_docs:         totalErrDocs,
-      err_etiq:         totalErrEtiq,
-      avg_exp_hora:     avgExpH,
-      avg_docs_hora:    avgDocH,
-      tasa_error_docs:  totalDocs > 0 ? round2(totalErrDocs / totalDocs * 100) : 0,
-      tasa_error_total: totalDocs > 0 ? round2((totalErrDocs + totalErrEtiq) / totalDocs * 100) : 0,
+      sesiones:          rows.length,
+      bookings:          totalBk,
+      docs:              totalDocs,
+      etiquetas:         totalEtiq,
+      err_docs:          totalErrDocs,
+      err_etiq:          totalErrEtiq,
+      avg_exp_hora:      avgExpH,
+      avg_docs_hora:     avgDocH,
+      tasa_error_docs:   totalDocs > 0 ? round2(totalErrDocs / totalDocs * 100) : 0,
+      tasa_error_etiq:   totalEtiq > 0 ? round2(totalErrEtiq / totalEtiq * 100) : 0,
+      tasa_error_total:  totalDocs > 0 ? round2((totalErrDocs + totalErrEtiq) / totalDocs * 100) : 0,
     };
   }
 

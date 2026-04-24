@@ -344,15 +344,15 @@ function render(data) {
           <div class="pill pill-manual">Human review</div>
         </div>
         ${[
-          ['Sesiones revisadas',     `${m.sesiones} bloques`],
-          ['Bookings revisados',     `${m.bookings} BKGs`, 'accent-b'],
-          ['Documentos procesados',  `${m.docs} docs`,     'accent-b'],
-          ['Errores en documentos',  '— (no capturado)', ''],
-          ['Errores en etiquetas',   '— (no capturado)', ''],
-          ['Tasa error (solo docs)', 'Sin datos J/K', ''],
-          ['Promedio exp/hora',      `${num(m.avg_exp_hora)} exp/hr`, 'accent-b'],
+          ['Sesiones revisadas',     `${m.sesiones} bloques`,  ''],
+          ['Bookings revisados',     `${m.bookings} BKGs`,     'accent-b'],
+          ['Documentos procesados',  `${m.docs} docs`,         'accent-b'],
+          ['Errores en documentos',  m.err_docs > 0 ? `${m.err_docs} errores`      : '— (no capturado)', m.err_docs > 0 ? 'accent-o' : ''],
+          ['Errores en etiquetas',   m.err_etiq > 0 ? `${m.err_etiq} flags`        : '— (no capturado)', m.err_etiq > 0 ? 'accent-o' : ''],
+          ['Tasa error (solo docs)', m.tasa_error_docs > 0 ? pct(m.tasa_error_docs) : 'Sin datos J/K',   m.tasa_error_docs > 0 ? 'accent-o' : ''],
+          ['Promedio exp/hora',      `${num(m.avg_exp_hora)} exp/hr`,   'accent-b'],
           ['Promedio docs/hora',     `${num(m.avg_docs_hora)} docs/hr`, 'accent-b'],
-        ].map(([k, v, cls='']) => `
+        ].map(([k, v, cls]) => `
           <div class="metric-row">
             <span class="metric-key">${k}</span>
             <span class="metric-val ${cls}" ${!cls ? 'style="color:var(--text-muted)"' : ''}>${v}</span>
@@ -411,9 +411,10 @@ function render(data) {
             const badge = r.metodo === 'Birdie'
               ? `<span class="badge badge-birdie">Birdie</span>`
               : `<span class="badge badge-manual">Manual</span>`;
-            const tasa = r.metodo === 'Birdie'
+            const hasErrData = r.metodo === 'Birdie' || r.err_docs > 0 || r.err_etiq > 0;
+            const tasa = hasErrData && r.tasa_error_docs > 0
               ? `<span style="color:${tColor}">${pct(r.tasa_error_docs)}</span>`
-              : `<span style="color:var(--text-muted)">N/D</span>`;
+              : `<span style="color:var(--text-muted)">—</span>`;
             return `<tr>
               <td>${r.num}</td>
               <td>${r.revisor}</td>
@@ -421,8 +422,8 @@ function render(data) {
               <td>${r.tipo}</td>
               <td>${r.bookings}</td>
               <td>${r.docs}</td>
-              <td>${r.metodo === 'Birdie' ? r.err_docs : '—'}</td>
-              <td>${r.metodo === 'Birdie' ? r.err_etiq : '—'}</td>
+              <td>${hasErrData ? r.err_docs : '—'}</td>
+              <td>${hasErrData ? r.err_etiq : '—'}</td>
               <td>${tasa}</td>
               <td>${num(r.exp_por_hora)}</td>
               <td>${num(r.docs_por_hora)}</td>
